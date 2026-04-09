@@ -170,12 +170,9 @@ p { text-wrap: pretty; }
    ============================================= */
 .hero {
   position: relative; overflow: hidden;
-  padding-top: clamp(140px, 16vw, 180px);
+  padding-top: clamp(100px, 12vw, 140px);
   padding-bottom: clamp(var(--space-12), 8vw, var(--space-24));
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
 }
 
 .hero-bg { position: absolute; inset: 0; z-index: 0; }
@@ -205,13 +202,28 @@ p { text-wrap: pretty; }
   background: radial-gradient(circle, rgba(0,180,240,0.05) 0%, transparent 70%);
 }
 
-.hero-content {
-  position: relative; z-index: 1;
+.hero-layout {
+  position: relative;
+  z-index: 1;
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(var(--space-8), 4vw, var(--space-14));
+  align-items: center;
+  padding-top: clamp(var(--space-8), 4vw, var(--space-16));
+  padding-bottom: clamp(var(--space-8), 4vw, var(--space-12));
+}
+
+.hero-content {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-6);
-  max-width: 46%;
-  padding-right: var(--space-8);
+  position: relative;
+  z-index: 2;
+}
+
+.hero-mockup-col {
+  position: relative;
+  z-index: 1;
 }
 
 .hero-badge {
@@ -283,11 +295,17 @@ p { text-wrap: pretty; }
    TERMINAL MOCKUP
    ============================================= */
 .terminal-mockup-wrap {
-  position: absolute;
-  top: clamp(100px, 12vw, 140px); right: clamp(16px, 3vw, 40px);
-  width: clamp(340px, 44%, 620px);
-  z-index: 2;
-  pointer-events: none;
+  display: block;
+}
+
+.terminal-mockup-wrap-inner {
+  width: 100%;
+}
+
+.hero-mockup-col {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .terminal-mockup {
@@ -637,6 +655,7 @@ p { text-wrap: pretty; }
     pointer-events: auto;
   }
   .hero { min-height: auto; }
+  .hero-layout { grid-template-columns: 1fr; }
   .hero-content { max-width: 100%; }
   .features-grid { grid-template-columns: repeat(2, 1fr); }
   .feature-card-large { grid-column: span 2; grid-row: span 1; }
