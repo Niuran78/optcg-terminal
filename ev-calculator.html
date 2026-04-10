@@ -421,11 +421,16 @@ function buildHits(set, currency) {
       : h.pullPerBox < 0.02
         ? '1/' + Math.round(1/h.pullPerBox) + ' boxes'
         : (h.pullPerBox*100).toFixed(1) + '%';
+    // Build search URLs for EU and US markets
+    const searchName = encodeURIComponent(h.name.replace(/ \(avg.*\)/g, '').replace(/ base$/,''));
+    const cmSearchUrl = 'https://www.cardmarket.com/en/OnePiece/Products/Search?searchString=' + searchName;
+    const tcgSearchUrl = 'https://www.tcgplayer.com/search/one-piece-card-game/product?q=' + searchName;
+    const priceVal = fmt(h.priceUSD * FX[currency], currency);
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${h.name} <span class="ev-rarity-badge rarity-${h.rarity}">${labels[h.rarity]}</span></td>
+      <td><a href="${cmSearchUrl}" target="_blank" rel="noopener" style="color:#e8e6e0;text-decoration:none;border-bottom:1px dotted #1e2a28;">${h.name}</a> <span class="ev-rarity-badge rarity-${h.rarity}">${labels[h.rarity]}</span></td>
       <td>${pull}</td>
-      <td>${fmt(h.priceUSD * FX[currency], currency)}</td>
+      <td><a href="${tcgSearchUrl}" target="_blank" rel="noopener" style="color:#a0b0ae;text-decoration:none;border-bottom:1px dotted #1e2a28;">${priceVal}</a></td>
       <td>+${fmt(ev, currency)}</td>
     `;
     tbody.appendChild(tr);
