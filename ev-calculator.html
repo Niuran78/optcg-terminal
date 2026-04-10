@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EV Calculator — OPTCG Market Terminal</title>
+  <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700,800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    .ev-widget {
+      font-family: 'Cabinet Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #0f0f10; border: 1px solid #1e2a28; border-radius: 12px;
+      overflow: hidden; max-width: 720px; width: 100%; color: #e8e6e0;
+    }
+    .ev-header {
+      background: #111614; border-bottom: 1px solid #1e2a28;
+      padding: 16px 20px; display: flex; align-items: center; gap: 10px;
+    }
+    .ev-header-icon { width: 28px; height: 28px; background: #00e5c0; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .ev-header-text h3 { font-size: 13px; font-weight: 700; color: #e8e6e0; letter-spacing: 0.03em; text-transform: uppercase; }
+    .ev-header-text p { font-size: 11px; color: #4a6660; margin-top: 1px; }
+    .ev-header-badge { margin-left: auto; background: rgba(0,229,192,0.1); border: 1px solid rgba(0,229,192,0.2); color: #00e5c0; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; display: flex; align-items: center; gap: 5px; }
+    .ev-live-dot { width: 5px; height: 5px; background: #00e5c0; border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .ev-body { padding: 20px; }
+    .ev-label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #4a6660; margin-bottom: 8px; }
+
+    /* Tab switcher JP / EN */
+    .ev-tabs { display: flex; gap: 4px; margin-bottom: 14px; }
+    .ev-tab { padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid #1e2a28; background: #161a19; color: #4a6660; transition: all 180ms ease; }
+    .ev-tab.active { background: rgba(0,229,192,0.1); border-color: rgba(0,229,192,0.4); color: #00e5c0; }
+    .ev-tab-note { font-size: 10px; color: #2e3d3a; margin-left: auto; align-self: center; }
+
+    .ev-set-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(138px,1fr)); gap: 8px; margin-bottom: 20px; }
+    .ev-set-btn { background: #161a19; border: 1px solid #1e2a28; border-radius: 8px; padding: 10px 12px; cursor: pointer; transition: all 180ms ease; text-align: left; }
+    .ev-set-btn:hover { border-color: rgba(0,229,192,0.3); background: #1a2220; }
+    .ev-set-btn.active { border-color: #00e5c0; background: rgba(0,229,192,0.07); }
+    .ev-set-btn.in-stock::after { content: '● In Stock'; display: block; font-size: 9px; font-weight: 700; color: #00e5c0; margin-top: 4px; letter-spacing: 0.04em; }
+    .ev-set-name { font-size: 12px; font-weight: 700; color: #e8e6e0; }
+    .ev-set-sub { font-size: 10px; color: #4a6660; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ev-set-price { font-size: 11px; font-weight: 700; color: #00e5c0; margin-top: 6px; }
+
+    .ev-input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .ev-input-group { display: flex; flex-direction: column; gap: 6px; }
+    .ev-input-group input, .ev-input-group select { background: #161a19; border: 1px solid #1e2a28; border-radius: 8px; padding: 10px 12px; font-size: 14px; font-weight: 600; color: #e8e6e0; font-family: inherit; transition: border-color 180ms ease; width: 100%; }
+    .ev-input-group input:focus, .ev-input-group select:focus { outline: none; border-color: rgba(0,229,192,0.5); }
+    .ev-input-group select option { background: #161a19; }
+    .ev-divider { height: 1px; background: #1e2a28; margin-bottom: 20px; }
+
+    .ev-results { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 20px; }
+    .ev-result-card { background: #161a19; border: 1px solid #1e2a28; border-radius: 8px; padding: 14px 12px; text-align: center; }
+    .ev-result-card.highlight { border-color: rgba(0,229,192,0.3); background: rgba(0,229,192,0.04); }
+    .ev-result-label { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #4a6660; margin-bottom: 6px; }
+    .ev-result-value { font-size: 20px; font-weight: 800; color: #e8e6e0; line-height: 1; }
+    .ev-result-value.positive { color: #00e5c0; }
+    .ev-result-value.negative { color: #e55c5c; }
+    .ev-result-value.neutral  { color: #e8a040; }
+    .ev-result-sub { font-size: 10px; color: #4a6660; margin-top: 4px; }
+
+    .ev-verdict { border-radius: 8px; padding: 14px 16px; display: flex; align-items: flex-start; gap: 12px; margin-bottom: 20px; }
+    .ev-verdict.open   { background: rgba(0,229,192,0.08);  border: 1px solid rgba(0,229,192,0.2); }
+    .ev-verdict.hold   { background: rgba(232,160,64,0.08); border: 1px solid rgba(232,160,64,0.2); }
+    .ev-verdict.sealed { background: rgba(229,92,92,0.08);  border: 1px solid rgba(229,92,92,0.2); }
+    .ev-verdict-text strong { font-size: 13px; font-weight: 800; display: block; }
+    .ev-verdict.open   .ev-verdict-text strong { color: #00e5c0; }
+    .ev-verdict.hold   .ev-verdict-text strong { color: #e8a040; }
+    .ev-verdict.sealed .ev-verdict-text strong { color: #e55c5c; }
+    .ev-verdict-text span { font-size: 12px; color: #4a6660; line-height: 1.5; }
+
+    .ev-hits-title { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #4a6660; margin-bottom: 10px; }
+    .ev-hits-table { width: 100%; border-collapse: collapse; }
+    .ev-hits-table th { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #2e3d3a; text-align: left; padding: 6px 8px; border-bottom: 1px solid #1e2a28; }
+    .ev-hits-table td { font-size: 12px; padding: 8px 8px; border-bottom: 1px solid #131a18; color: #a0b0ae; }
+    .ev-hits-table tr:last-child td { border-bottom: none; }
+    .ev-hits-table td:first-child { color: #e8e6e0; font-weight: 600; }
+    .ev-hits-table td:last-child  { color: #00e5c0; font-weight: 700; text-align: right; }
+    .ev-rarity-badge { display: inline-block; font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: 3px; margin-left: 4px; vertical-align: middle; }
+    .rarity-sec   { background: rgba(229,92,92,0.15);   color: #e55c5c; }
+    .rarity-aa    { background: rgba(232,160,64,0.15);  color: #e8a040; }
+    .rarity-sr    { background: rgba(100,150,200,0.15); color: #6496c8; }
+    .rarity-sp    { background: rgba(160,80,220,0.15);  color: #a050dc; }
+    .rarity-manga { background: rgba(0,229,192,0.15);   color: #00e5c0; }
+
+    .ev-data-note { margin-top: 16px; background: #111614; border: 1px solid #1e2a28; border-radius: 8px; padding: 12px 14px; font-size: 11px; color: #4a6660; line-height: 1.6; }
+    .ev-data-note strong { color: #2e3d3a; }
+    .ev-footer { border-top: 1px solid #1e2a28; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
+    .ev-footer-note { font-size: 10px; color: #2e3d3a; }
+    .ev-footer-link { font-size: 11px; font-weight: 700; color: #00e5c0; text-decoration: none; }
+    .ev-footer-link:hover { color: #00c4a4; }
+
+    @media (max-width: 480px) {
+      .ev-input-row { grid-template-columns: 1fr; }
+      .ev-results { grid-template-columns: 1fr 1fr; }
+      .ev-results .ev-result-card:last-child { grid-column: span 2; }
+      .ev-set-grid { grid-template-columns: repeat(2,1fr); }
+    }
+  </style>
+</head>
+<body style="background:#000;padding:20px;display:flex;justify-content:center;">
+<div class="ev-widget">
+  <div class="ev-header">
+    <div class="ev-header-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+    </div>
+    <div class="ev-header-text">
+      <h3>EV Calculator</h3>
+      <p>Is it worth opening or holding sealed?</p>
+    </div>
+    <div class="ev-header-badge"><div class="ev-live-dot"></div>OPTCG Terminal</div>
+  </div>
+
+  <div class="ev-body">
+    <div class="ev-label">Version</div>
+    <div class="ev-tabs">
+      <button class="ev-tab active" id="tabJP" onclick="switchTab('JP')">🇯🇵 Japanese</button>
+      <button class="ev-tab" id="tabEN" onclick="switchTab('EN')">🇺🇸 English</button>
+      <span class="ev-tab-note">Prices: TCGPlayer / Cardmarket · April 2026</span>
+    </div>
+
+    <div class="ev-label">Select Set</div>
+    <div class="ev-set-grid" id="setGrid"></div>
+
+    <div class="ev-input-row">
+      <div class="ev-input-group">
+        <div class="ev-label">Your Box Cost</div>
+        <input type="number" id="boxCost" placeholder="e.g. 33" min="0" step="1" />
+      </div>
+      <div class="ev-input-group">
+        <div class="ev-label">Currency</div>
+        <select id="currency">
+          <option value="EUR">EUR (€)</option>
+          <option value="CHF">CHF (CHF)</option>
+          <option value="USD">USD ($)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="ev-divider"></div>
+
+    <div class="ev-results">
+      <div class="ev-result-card">
+        <div class="ev-result-label">Box EV</div>
+        <div class="ev-result-value" id="resEV">—</div>
+        <div class="ev-result-sub">Expected value</div>
+      </div>
+      <div class="ev-result-card highlight">
+        <div class="ev-result-label">Profit / Loss</div>
+        <div class="ev-result-value" id="resPL">—</div>
+        <div class="ev-result-sub">vs your cost</div>
+      </div>
+      <div class="ev-result-card">
+        <div class="ev-result-label">Return %</div>
+        <div class="ev-result-value" id="resPct">—</div>
+        <div class="ev-result-sub">on opening</div>
+      </div>
+    </div>
+
+    <div class="ev-verdict hold" id="evVerdict">
+      <div class="ev-verdict-text">
+        <strong id="verdictTitle">Enter your box cost to calculate</strong>
+        <span id="verdictSub">Select a set and enter what you paid or are being asked to pay for a single booster box.</span>
+      </div>
+    </div>
+
+    <div class="ev-hits-title">Hit Breakdown — probability-weighted EV per box</div>
+    <table class="ev-hits-table">
+      <thead>
+        <tr>
+          <th>Card / Hit Type</th>
+          <th>Pull Rate</th>
+          <th>Market Price</th>
+          <th>EV Contribution</th>
+        </tr>
+      </thead>
+      <tbody id="hitsBody">
+        <tr><td colspan="4" style="text-align:center;color:#2e3d3a;padding:16px;">Select a set to see hit breakdown</td></tr>
+      </tbody>
+    </table>
+
+    <div class="ev-data-note">
+      <strong>Data sources:</strong> Japanese card prices from Cardmarket JP / Fuji Card Shop / SNKRDUNK (April 2026). English prices from TCGPlayer market data (April 9, 2026). Pull rates from community data (SLAB-Z, r/OnePieceTCGFinance) — Bandai publishes no official rates. EV = statistical average across many openings, not a guarantee per box. For educational purposes only.
+    </div>
+  </div>
+
+  <div class="ev-footer">
+    <span class="ev-footer-note">Not financial advice. Updated: April 2026.</span>
+    <a href="https://terminal.holygrade.com" class="ev-footer-link" target="_blank">Full Terminal →</a>
+  </div>
+</div>
+
+<script>
+// ================================================================
+// REAL MARKET DATA — April 2026
+// JP prices: Cardmarket JP / Fuji Card Shop / SNKRDUNK (in EUR/USD)
+// EN prices: TCGPlayer market price (USD)
+// Pull rates: community data, no official Bandai rates published
+// JP boxes have ~10 packs, EN boxes have 24 packs
+// ================================================================
+
+const FX = { USD: 1, EUR: 0.915, CHF: 0.885 };
+const SYMBOLS = { EUR: '€', CHF: 'CHF ', USD: '$' };
+
+// JP: prices sourced from Japanese market (Cardmarket JP / Fuji)
+// EN: prices sourced from TCGPlayer USD market price
+
+const SETS_JP = [
+  {
+    id: 'op13-jp', name: 'OP-13 JP', full: 'Carrying on His Will',
+    inStock: true,
+    // JP box ~¥3,400 = ~€28-30 / CHF 28 retail. Secondary market ~€33-38
+    boxPrice: { USD: 37, EUR: 34, CHF: 33 },
+    // JP box = 10 packs. Pull rates scaled accordingly (approx 40% of EN rates)
+    // JP prices from Fuji Card Shop / Japanese market
+    hits: [
+      // Manga Rares (Red) — ~1 per 60 boxes JP
+      { name: 'Luffy OP13-118 Red Manga AA',  rarity: 'manga', pullPerBox: 1/60,  priceUSD: 2469 },
+      { name: 'Ace OP13-119 Red Manga AA',    rarity: 'manga', pullPerBox: 1/75,  priceUSD: 1917 },
+      { name: 'Sabo OP13-120 Red Manga AA',   rarity: 'manga', pullPerBox: 1/75,  priceUSD: 1710 },
+      // SP (God Pack / Shanks Gold/Silver) ~1/200 boxes
+      { name: 'Shanks Gold Back SP',          rarity: 'sp',    pullPerBox: 1/200, priceUSD: 952 },
+      { name: 'Shanks Silver Back SP',        rarity: 'sp',    pullPerBox: 1/200, priceUSD: 585 },
+      // SEC (3 SECs, 1 per ~15 packs JP = 1.5 per box, split 3 ways = 0.5 each)
+      { name: 'Luffy OP13-118 SEC base',      rarity: 'sec',   pullPerBox: 0.5,   priceUSD: 32.68 },
+      { name: 'Ace OP13-119 SEC base',        rarity: 'sec',   pullPerBox: 0.25,  priceUSD: 2.65 },
+      { name: 'Sabo OP13-120 SEC base',       rarity: 'sec',   pullPerBox: 0.25,  priceUSD: 6.12 },
+      // Alt Art Rare (Five Elders, ~€320 each, ~1 per 15 boxes JP)
+      { name: 'Five Elders Alt Art (avg)',    rarity: 'aa',    pullPerBox: 1/15,  priceUSD: 350 },
+      // Leader Alt Art (~€25–30, ~1 per 3 boxes)
+      { name: 'Leader Alt Art (avg)',         rarity: 'aa',    pullPerBox: 1/3,   priceUSD: 27 },
+      // SR base (JP box 3-4 SR per box, avg ~€1)
+      { name: 'SR base (avg ×3.5)',           rarity: 'sr',    pullPerBox: 3.5,   priceUSD: 1.10 },
+    ]
+  },
+  {
+    id: 'eb04-jp', name: 'EB-04 JP', full: 'Egghead Crisis',
+    inStock: true,
+    // EB box retail ~¥2,200 = ~€14-16. Secondary market ~€18-22
+    boxPrice: { USD: 22, EUR: 20, CHF: 19 },
+    hits: [
+      // Manga Rare Koby — crown jewel of EB-04
+      { name: 'Koby EB04-044 Manga Rare',     rarity: 'manga', pullPerBox: 1/48,  priceUSD: 610 },
+      // SP cards (~1/50-80 boxes each)
+      { name: 'Roronoa Zoro SP (PRB02-006)',   rarity: 'sp',    pullPerBox: 1/80,  priceUSD: 161 },
+      { name: 'Zeus SP (OP11-106)',            rarity: 'sp',    pullPerBox: 1/80,  priceUSD: 226 },
+      { name: 'Jewelry Bonney L-P',           rarity: 'aa',    pullPerBox: 1/30,  priceUSD: 141 },
+      { name: 'Sabo SP (PRB02-014)',           rarity: 'sp',    pullPerBox: 1/100, priceUSD: 96 },
+      { name: 'Smoker & Tashigi SP',          rarity: 'sp',    pullPerBox: 1/80,  priceUSD: 77 },
+      // SEC (Luffy, ~1 per 15 packs JP)
+      { name: 'Luffy EB04-061 SEC',           rarity: 'sec',   pullPerBox: 0.5,   priceUSD: 65 },
+      // Alt Art SRs (~€50-75 for top ones, 1-2 per box)
+      { name: 'Roronoa Zoro AA (EB04-007)',   rarity: 'aa',    pullPerBox: 1/5,   priceUSD: 75 },
+      { name: 'Luffy AA (EB04-061)',          rarity: 'aa',    pullPerBox: 1/5,   priceUSD: 65 },
+      // Kizaru SR-P
+      { name: 'Kizaru SR-P (EB04-058)',       rarity: 'aa',    pullPerBox: 1/8,   priceUSD: 52 },
+      // SR base (3-4 per box, avg ~€1.50)
+      { name: 'SR base (avg ×3.5)',           rarity: 'sr',    pullPerBox: 3.5,   priceUSD: 1.50 },
+    ]
+  },
+  {
+    id: 'op11-jp', name: 'OP-11 JP', full: 'A Fist of Divine Speed',
+    inStock: true,
+    boxPrice: { USD: 48, EUR: 44, CHF: 42 },
+    hits: [
+      // OP-11 Manga Rare (Gear 5 Luffy confirmed ~1/48 boxes)
+      { name: 'Luffy Manga Rare (OP11)',      rarity: 'manga', pullPerBox: 1/48,  priceUSD: 500 },
+      // Zeus SP from OP-11
+      { name: 'Zeus SP (OP11-106)',           rarity: 'sp',    pullPerBox: 1/80,  priceUSD: 226 },
+      // SEC avg (~2 per set)
+      { name: 'SEC (avg)',                    rarity: 'sec',   pullPerBox: 0.5,   priceUSD: 22 },
+      // AA Leader avg
+      { name: 'Leader Alt Art (avg)',         rarity: 'aa',    pullPerBox: 1/3,   priceUSD: 35 },
+      // AA SR avg
+      { name: 'AA SR (avg ×1)',               rarity: 'aa',    pullPerBox: 1,     priceUSD: 18 },
+      { name: 'SR base (avg ×3.5)',           rarity: 'sr',    pullPerBox: 3.5,   priceUSD: 1.20 },
+    ]
+  },
+  {
+    id: 'op13-3rd', name: '3rd Anni', full: '3rd Anniversary Set',
+    inStock: true,
+    // Sealed set box ~$200 retail (P-Bandai). Secondary market $250-400+
+    boxPrice: { USD: 280, EUR: 256, CHF: 248 },
+    // This is a special set — not a standard booster. Contains promo cards.
+    // Top cards: Buggy Manga ~$1,500, Shanks SP ~$1,200, Boa SP ~$1,000
+    hits: [
+      { name: 'Buggy Manga Rare',             rarity: 'manga', pullPerBox: 1/5,   priceUSD: 1500 },
+      { name: 'Shanks SP',                    rarity: 'sp',    pullPerBox: 1/5,   priceUSD: 1200 },
+      { name: 'Boa Hancock SP',               rarity: 'sp',    pullPerBox: 1/5,   priceUSD: 1000 },
+      { name: 'Zoro SP',                      rarity: 'sp',    pullPerBox: 1/5,   priceUSD: 1000 },
+      { name: 'Promo cards (avg set value)',  rarity: 'aa',    pullPerBox: 1,     priceUSD: 28 },
+    ]
+  },
+];
+
+const SETS_EN = [
+  {
+    id: 'op13-en', name: 'OP13 EN', full: 'Carrying on His Will',
+    inStock: false,
+    boxPrice: { USD: 519, EUR: 468, CHF: 455 },
+    hits: [
+      { name: 'Luffy OP13-118 Manga AA',     rarity: 'manga', pullPerBox: 1/60,  priceUSD: 1985.54 },
+      { name: 'Ace OP13-119 Manga AA',       rarity: 'manga', pullPerBox: 1/75,  priceUSD: 900 },
+      { name: 'Sabo OP13-120 Manga AA',      rarity: 'manga', pullPerBox: 1/75,  priceUSD: 839.35 },
+      { name: 'Demon Pack (Five Elders)',     rarity: 'sp',    pullPerBox: 1/200, priceUSD: 1200 },
+      { name: 'Luffy OP13-118 SEC',          rarity: 'sec',   pullPerBox: 0.222, priceUSD: 32.68 },
+      { name: 'Sabo OP13-120 SEC',           rarity: 'sec',   pullPerBox: 0.222, priceUSD: 6.12 },
+      { name: 'Ace OP13-119 SEC',            rarity: 'sec',   pullPerBox: 0.222, priceUSD: 2.65 },
+      { name: 'Luffy SEC Parallel',          rarity: 'sec',   pullPerBox: 0.05,  priceUSD: 79.19 },
+      { name: 'Luffy Leader AA (OP13-001)',  rarity: 'aa',    pullPerBox: 0.167, priceUSD: 44.42 },
+      { name: 'Sabo Leader AA (OP13-004)',   rarity: 'aa',    pullPerBox: 0.167, priceUSD: 20.88 },
+      { name: 'SR base (avg ×7)',            rarity: 'sr',    pullPerBox: 7,     priceUSD: 1.20 },
+    ]
+  },
+  {
+    id: 'op08-en', name: 'OP08 EN', full: 'Two Legends',
+    inStock: false,
+    boxPrice: { USD: 195, EUR: 175, CHF: 170 },
+    hits: [
+      { name: 'Rayleigh OP08-118 Manga',     rarity: 'manga', pullPerBox: 1/48,  priceUSD: 652.32 },
+      { name: 'Rayleigh SEC',                rarity: 'sec',   pullPerBox: 0.333, priceUSD: 4.65 },
+      { name: 'Kaido & Linlin SEC',          rarity: 'sec',   pullPerBox: 0.333, priceUSD: 3.16 },
+      { name: 'Rayleigh Parallel',           rarity: 'sec',   pullPerBox: 0.05,  priceUSD: 19.51 },
+      { name: 'Jewelry Bonney SP',           rarity: 'sp',    pullPerBox: 1/180, priceUSD: 266.19 },
+      { name: 'Portgas D. Ace SP',           rarity: 'sp',    pullPerBox: 1/180, priceUSD: 262.76 },
+      { name: 'AA SR (avg ×2)',              rarity: 'aa',    pullPerBox: 2,     priceUSD: 8.00 },
+      { name: 'SR base (avg ×7)',            rarity: 'sr',    pullPerBox: 7,     priceUSD: 1.50 },
+    ]
+  },
+  {
+    id: 'op07-en', name: 'OP07 EN', full: '500 Years in the Future',
+    inStock: false,
+    boxPrice: { USD: 165, EUR: 148, CHF: 144 },
+    hits: [
+      { name: 'Boa Hancock Manga (OP07-051)', rarity: 'manga', pullPerBox: 1/48, priceUSD: 1729.58 },
+      { name: 'Portgas D. Ace SEC Parallel', rarity: 'sec',   pullPerBox: 0.05,  priceUSD: 21.33 },
+      { name: 'Portgas D. Ace SEC',          rarity: 'sec',   pullPerBox: 0.333, priceUSD: 3.09 },
+      { name: 'Sabo SEC',                    rarity: 'sec',   pullPerBox: 0.333, priceUSD: 1.75 },
+      { name: 'O-Nami SP',                   rarity: 'sp',    pullPerBox: 1/180, priceUSD: 341.54 },
+      { name: 'Boa Hancock Leader AA',       rarity: 'aa',    pullPerBox: 0.167, priceUSD: 88.26 },
+      { name: 'Jewelry Bonney Leader AA',    rarity: 'aa',    pullPerBox: 0.167, priceUSD: 70.37 },
+      { name: 'AA SR (avg ×2)',              rarity: 'aa',    pullPerBox: 2,     priceUSD: 40.00 },
+      { name: 'SR base (avg ×7)',            rarity: 'sr',    pullPerBox: 7,     priceUSD: 1.20 },
+    ]
+  },
+  {
+    id: 'op01-en', name: 'OP01 EN', full: 'Romance Dawn',
+    inStock: false,
+    boxPrice: { USD: 362, EUR: 324, CHF: 315 },
+    hits: [
+      { name: 'Shanks Manga AA (OP01-120)',  rarity: 'manga', pullPerBox: 1/100, priceUSD: 2038.87 },
+      { name: 'Shanks SEC Parallel',         rarity: 'sec',   pullPerBox: 0.05,  priceUSD: 72.45 },
+      { name: 'Shanks SEC',                  rarity: 'sec',   pullPerBox: 0.333, priceUSD: 6.55 },
+      { name: 'Yamato SEC Parallel',         rarity: 'sec',   pullPerBox: 0.05,  priceUSD: 101.70 },
+      { name: 'Yamato SEC',                  rarity: 'sec',   pullPerBox: 0.333, priceUSD: 5.43 },
+      { name: 'Nami Parallel (OP01-016)',    rarity: 'aa',    pullPerBox: 0.08,  priceUSD: 447.06 },
+      { name: 'Zoro SR Parallel (OP01-025)', rarity: 'aa',    pullPerBox: 0.08,  priceUSD: 163.61 },
+      { name: 'SR base (avg ×7)',            rarity: 'sr',    pullPerBox: 7,     priceUSD: 3.00 },
+    ]
+  },
+];
+
+let currentTab = 'JP';
+let SETS = SETS_JP;
+let selectedSet = SETS_JP[0];
+
+function switchTab(tab) {
+  currentTab = tab;
+  SETS = tab === 'JP' ? SETS_JP : SETS_EN;
+  selectedSet = SETS[0];
+  document.getElementById('tabJP').classList.toggle('active', tab === 'JP');
+  document.getElementById('tabEN').classList.toggle('active', tab === 'EN');
+  document.getElementById('boxCost').value = '';
+  buildSetGrid();
+  calculate();
+}
+
+function getCurrency() { return document.getElementById('currency').value; }
+
+function fmt(val, currency) {
+  const sym = SYMBOLS[currency];
+  if (val >= 1000) return sym + Math.round(val).toLocaleString('en-US');
+  if (val >= 10)   return sym + Math.round(val).toLocaleString('en-US');
+  return sym + val.toFixed(2);
+}
+
+function calcEV(set, currency) {
+  return set.hits.reduce((sum, h) => sum + h.pullPerBox * h.priceUSD * FX[currency], 0);
+}
+
+function buildSetGrid() {
+  const grid = document.getElementById('setGrid');
+  grid.innerHTML = '';
+  const currency = getCurrency();
+  SETS.forEach(set => {
+    const btn = document.createElement('button');
+    btn.className = 'ev-set-btn' + (set.id === selectedSet.id ? ' active' : '') + (set.inStock ? ' in-stock' : '');
+    btn.innerHTML = `
+      <div class="ev-set-name">${set.name}</div>
+      <div class="ev-set-sub">${set.full}</div>
+      <div class="ev-set-price">Box ~${fmt(set.boxPrice[currency], currency)}</div>
+    `;
+    btn.addEventListener('click', () => {
+      selectedSet = set;
+      document.getElementById('boxCost').placeholder = Math.round(set.boxPrice[getCurrency()]);
+      buildSetGrid();
+      calculate();
+    });
+    grid.appendChild(btn);
+  });
+}
+
+function buildHits(set, currency) {
+  const tbody = document.getElementById('hitsBody');
+  tbody.innerHTML = '';
+  const sorted = [...set.hits].sort((a,b) => (b.pullPerBox*b.priceUSD)-(a.pullPerBox*a.priceUSD));
+  const labels = { sec:'SEC', aa:'AA', sr:'SR', sp:'SP', manga:'MANGA' };
+  sorted.forEach(h => {
+    const ev = h.pullPerBox * h.priceUSD * FX[currency];
+    const pull = h.pullPerBox >= 1
+      ? Math.round(h.pullPerBox) + '/box'
+      : h.pullPerBox < 0.02
+        ? '1/' + Math.round(1/h.pullPerBox) + ' boxes'
+        : (h.pullPerBox*100).toFixed(1) + '%';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${h.name} <span class="ev-rarity-badge rarity-${h.rarity}">${labels[h.rarity]}</span></td>
+      <td>${pull}</td>
+      <td>${fmt(h.priceUSD * FX[currency], currency)}</td>
+      <td>+${fmt(ev, currency)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function calculate() {
+  const currency = getCurrency();
+  const cost = parseFloat(document.getElementById('boxCost').value);
+  const ev = calcEV(selectedSet, currency);
+  document.getElementById('resEV').textContent = fmt(ev, currency);
+  document.getElementById('resEV').className = 'ev-result-value';
+
+  if (!isNaN(cost) && cost > 0) {
+    const pl = ev - cost;
+    const pct = (ev / cost - 1) * 100;
+    const plEl = document.getElementById('resPL');
+    plEl.textContent = (pl >= 0 ? '+' : '') + fmt(pl, currency);
+    plEl.className = 'ev-result-value ' + (pl >= 0 ? 'positive' : 'negative');
+    const pctEl = document.getElementById('resPct');
+    pctEl.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+    pctEl.className = 'ev-result-value ' + (pct > 5 ? 'positive' : pct < -10 ? 'negative' : 'neutral');
+
+    const verdict = document.getElementById('evVerdict');
+    const title = document.getElementById('verdictTitle');
+    const sub = document.getElementById('verdictSub');
+    if (pct > 10) {
+      verdict.className = 'ev-verdict open';
+      title.textContent = '✅ EV positive — math favors opening';
+      sub.textContent = `At ${fmt(cost, currency)}/box, expected return is ${fmt(ev, currency)} (+${pct.toFixed(1)}%). EV is driven by rare hits — statistically favorable at this price.`;
+    } else if (pct > -10) {
+      verdict.className = 'ev-verdict hold';
+      title.textContent = '⚡ Borderline — holding sealed may outperform';
+      sub.textContent = `Opening EV is close to your cost. Given sealed product appreciation trends, holding may generate better returns than opening.`;
+    } else {
+      verdict.className = 'ev-verdict sealed';
+      title.textContent = '🔒 Hold sealed — opening EV is negative at this price';
+      sub.textContent = `At ${fmt(cost, currency)}/box you'd statistically lose ${fmt(Math.abs(pl), currency)} per box vs selling sealed. The sealed premium outweighs opening EV.`;
+    }
+  } else {
+    ['resPL','resPct'].forEach(id => { document.getElementById(id).textContent = '—'; document.getElementById(id).className = 'ev-result-value'; });
+    document.getElementById('evVerdict').className = 'ev-verdict hold';
+    document.getElementById('verdictTitle').textContent = 'Enter your box cost to calculate';
+    document.getElementById('verdictSub').textContent = 'Select a set and enter what you paid or are being asked to pay for a single booster box.';
+  }
+  buildHits(selectedSet, currency);
+}
+
+// Init
+buildSetGrid();
+buildHits(selectedSet, getCurrency());
+document.getElementById('boxCost').addEventListener('input', calculate);
+document.getElementById('currency').addEventListener('change', () => { buildSetGrid(); buildHits(selectedSet, getCurrency()); calculate(); });
+</script>
+</body>
+</html>
